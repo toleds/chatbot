@@ -34,6 +34,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   List<Widget> _messages = List<Widget>();
+  Widget _suggestionChips;
   TextEditingController _messageController = TextEditingController();
 
   AuthGoogle _authGoogle;
@@ -65,9 +66,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
     String response;
     String audioText;
+    List<dynamic> listMessages;
 
     await _dialogflow.detectIntent(_tryToCorrectTheMessage(message)).then((resp) {
       response = resp.getMessage();
+      listMessages = resp.getListMessage();
       audioText = resp.outputAudio;
     }).catchError((error) {
       response = error.toString();
@@ -75,6 +78,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     setState(() {
+      _suggestionChips = _buildSuggestionChips(listMessages);
       _messages.insert(0, _message(response, false));
     });
 
@@ -94,6 +98,37 @@ class _MyHomePageState extends State<MyHomePage> {
       await _audioPlayer.play(file.path, isLocal: true);
       _messageController.clear();
     }
+  }
+
+  _buildSuggestionChips(List<dynamic> listMessages) {
+    List<Widget> buttons = List<Widget>();
+
+    if (listMessages != null && listMessages.length > 1) {
+      Map<String, dynamic> listMessage = listMessages[1];
+
+      listMessage.forEach((k, v) {
+        if (k == "suggestions") {
+          (v as Map<String, dynamic>).forEach((f, g) {
+            (g as List).forEach((h) {
+              buttons.add(Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: RaisedButton(
+                  child: Text(h['title']),
+                  shape: StadiumBorder(),
+                  color: Colors.white,
+                  onPressed: () {},
+                ),
+              ));
+            });
+          });
+        }
+      });
+    }
+    return Row(
+      children: buttons,
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+    );
   }
 
   _messageComposer() {
@@ -121,31 +156,30 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   _messageDisplayer() {
-    return Flexible(
-      child: ListView.builder(
-          padding: const EdgeInsets.all(20.0),
-          reverse: true,
-          itemCount: _messages.length,
-          itemBuilder: (context, index) => _messages[index]),
-    );
+    return Expanded(
+        child: ListView.builder(
+            padding: const EdgeInsets.all(20.0),
+            reverse: true,
+            itemCount: _messages.length,
+            itemBuilder: (context, index) => _messages[index]));
   }
 
   _messageBubble(String message, bool isOwnMessage) {
-    return Row(
-      mainAxisAlignment: isOwnMessage ? MainAxisAlignment.end : MainAxisAlignment.start,
-      children: <Widget>[Flexible(flex: 1, child: Text("$message"))],
-    );
+    return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: isOwnMessage ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+              padding: const EdgeInsets.all(10),
+              child: Text("$message"),
+              decoration: BoxDecoration(
+                  color: isOwnMessage ? Colors.teal[50] : Colors.blue[50],
+                  borderRadius: BorderRadius.all(Radius.circular(10))))
+        ]);
   }
 
   _message(String message, bool isOwnMessage) {
-    return Padding(
-      padding: const EdgeInsets.all(5.0),
-      child: Container(
-        child: _messageBubble(message, isOwnMessage),
-        padding: const EdgeInsets.all(10.0),
-        decoration: BoxDecoration(color: Colors.blue[100]),
-      ),
-    );
+    return Padding(padding: const EdgeInsets.all(5.0), child: _messageBubble(message, isOwnMessage));
   }
 
   _initSpeechRecognition() async {
@@ -177,8 +211,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  _buildSuggestionChips() {}
-
   @override
   void initState() {
     super.initState();
@@ -190,7 +222,11 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(title: Text(widget.title)),
-        body: Column(
-            children: <Widget>[_messageDisplayer(), Divider(height: 10.0, color: Colors.black), _messageComposer()]));
+        body: Column(children: <Widget>[
+          _messageDisplayer(),
+          Container(padding: const EdgeInsets.all(5.0), child: _suggestionChips),
+          Divider(height: 10.0, color: Colors.black),
+          _messageComposer()
+        ]));
   }
 }
